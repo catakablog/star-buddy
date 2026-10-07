@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="생년월일을 넣으면 내가 태어날 무렵 지구로 출발한 별빛을 찾아 주고, 오늘 밤 어디서 보이는지 알려 줍니다.">
+<meta name="theme-color" content="#0d1426">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="별빛 친구">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<title>별빛 친구 찾기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 한 열 관측 노트 — 입력 → 타임라인(출생일 ±2년 축) → 별 카드 목록 */
+:root{
+  --sky:#0d1426; --sky-2:#141d35; --line:#2a3658; --ink:#e8ebf5; --muted:#9aa5c4;
+  --star:#f2c96b; --star-soft:rgba(242,201,107,.14); --cool:#8fb6ff; --ok:#7fd6a4; --no:#c98f86;
+  --f-display:"Gowun Batang","Nanum Myeongjo",Georgia,serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--sky);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;margin:0}
+.wrap{max-width:860px;margin:0 auto;padding-inline:max(20px,env(safe-area-inset-left,0px));padding-block:calc(28px + env(safe-area-inset-top,0px)) calc(64px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:28px;position:relative}
+#sky{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.wrap>*{position:relative;z-index:1}
+header h1{font-family:var(--f-display);font-weight:700;font-size:clamp(30px,6vw,44px);margin:0;letter-spacing:-.01em;text-wrap:balance}
+header p{color:var(--muted);margin:8px 0 0;max-width:62ch}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--star);font-weight:600;margin-bottom:6px}
+.panel{background:var(--sky-2);border:1px solid var(--line);border-radius:14px;padding:20px}
+form{display:flex;flex-wrap:wrap;gap:14px 18px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:6px}
+label{font-size:13px;color:var(--muted)}
+input[type=date],input[type=number],select{font-family:var(--f-mono);font-size:17px;background:var(--sky);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+input[type=date]:focus-visible,input[type=number]:focus-visible,select:focus-visible,button:focus-visible,.chk input:focus-visible{outline:2px solid var(--star);outline-offset:2px}
+button{font-family:var(--f-body);font-weight:600;font-size:15px;background:var(--star);color:#1a1405;border:0;border-radius:10px;padding:11px 20px;cursor:pointer}
+button:hover{filter:brightness(1.06)}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);padding-bottom:10px;cursor:pointer}
+.chk input{accent-color:var(--star);width:16px;height:16px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:18px}
+.stat{border-top:1px solid var(--line);padding-top:10px}
+.stat b{display:block;font-family:var(--f-mono);font-size:22px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--muted)}
+.coords{display:flex;flex-wrap:wrap;gap:14px 18px;flex-basis:100%}
+.coords input{width:11em}
+.opts{display:flex;flex-wrap:wrap;gap:0 18px;flex-basis:100%}
+select{font-family:var(--f-body);font-size:15px;padding:11px 12px}
+.locnote{font-size:12.5px;color:var(--muted);margin:12px 0 0;max-width:70ch}
+.vis{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;font-size:13.5px;padding:10px 12px;border-radius:10px;background:var(--sky);border-left:3px solid var(--line)}
+.vis-tag{font-weight:600;white-space:nowrap}
+.vis-txt{min-width:0;flex:1 1 260px;color:var(--muted)}
+.vis-txt b{color:var(--ink);font-weight:600}
+.vis-ok{border-left-color:var(--ok)}.vis-ok .vis-tag{color:var(--ok)}
+.vis-scope{border-left-color:var(--cool)}.vis-scope .vis-tag{color:var(--cool)}
+.vis-no{border-left-color:var(--no)}.vis-no .vis-tag{color:var(--no)}
+#nightSub b{color:var(--ink)}
+.example{display:inline-block;font-size:12px;color:var(--cool);border:1px solid var(--line);border-radius:999px;padding:2px 10px;margin-top:12px}
+.err{color:#ff9b8a;font-size:14px;margin-top:10px}
+h2{font-family:var(--f-display);font-size:22px;margin:0 0 4px;font-weight:700}
+.sub{color:var(--muted);font-size:13.5px;margin:0 0 14px}
+.tl{overflow-x:auto}
+.tl svg{display:block;width:100%;min-width:560px;height:auto}
+.tl text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+.tl .lbl{font-family:var(--f-body);font-size:11.5px;fill:var(--ink)}
+.list{display:flex;flex-direction:column;gap:12px}
+.card{display:grid;grid-template-columns:1fr auto;gap:6px 18px;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:var(--sky-2)}
+.card.best{border-color:var(--star);box-shadow:0 0 0 1px var(--star-soft),0 0 28px -8px var(--star-soft)}
+.name{min-width:0}
+.name h3{margin:0;font-family:var(--f-display);font-size:21px;font-weight:700;line-height:1.3}
+.name .en{font-size:13.5px;color:var(--muted);margin-left:6px;font-family:var(--f-body);font-weight:400}
+.meta{color:var(--muted);font-size:13.5px}
+.diff{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.diff b{display:block;font-size:20px;font-weight:500;color:var(--star)}
+.diff span{font-size:12px;color:var(--muted)}
+.facts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px;border-top:1px dashed var(--line);padding-top:10px;margin-top:4px}
+.facts div{min-width:0}
+.facts em{font-style:normal;color:var(--muted);margin-right:6px}
+.chips{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;border-radius:999px;padding:2px 9px;border:1px solid var(--line);color:var(--muted)}
+.chip.eye{color:var(--star);border-color:rgba(242,201,107,.45)}
+.chip.scope{color:var(--cool);border-color:rgba(143,182,255,.4)}
+.feat{grid-column:1/-1;font-size:13px;color:var(--muted);min-width:0}
+.empty{color:var(--muted);font-size:14px}
+footer{color:var(--muted);font-size:12.5px;line-height:1.7;border-top:1px solid var(--line);padding-top:16px}
+@media (max-width:520px){.card{grid-template-columns:1fr}.diff{text-align:left}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+<main class="wrap">
+  <header>
+    <div class="eyebrow">Star Buddy · 별빛 계산기</div>
+    <h1>별빛 친구 찾기</h1>
+    <p>오늘 밤 보이는 별빛은 그 별까지의 거리(광년)만큼 오래전에 출발한 빛입니다. 생년월일을 넣으면, 당신이 태어난 날과 비슷한 시기에 지구로 출발한 별빛을 찾아 드립니다.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="in-h">
+    <form id="f" novalidate>
+      <div class="field">
+        <label for="birth" id="in-h">생년월일</label>
+        <input type="date" id="birth" value="1980-07-04" min="1866-01-01" required>
+      </div>
+      <div class="field">
+        <label for="city">관측 위치</label>
+        <select id="city"></select>
+      </div>
+      <div class="field">
+        <label for="obsDate">관측 날짜(밤)</label>
+        <input type="date" id="obsDate">
+      </div>
+      <div class="field">
+        <label for="skyQ">하늘 밝기</label>
+        <select id="skyQ">
+          <option value="3">도심 (3등급까지 보임)</option>
+          <option value="5.5" selected>교외 (5.5등급까지)</option>
+          <option value="6.5">어두운 시골 (6.5등급까지)</option>
+        </select>
+      </div>
+      <div class="coords" id="coordsBox" hidden>
+        <div class="field"><label for="lat">위도 (북위 +)</label><input type="number" id="lat" step="0.0001" min="-90" max="90" value="37.5665"></div>
+        <div class="field"><label for="lon">경도 (동경 +)</label><input type="number" id="lon" step="0.0001" min="-180" max="180" value="126.9780"></div>
+      </div>
+      <div class="opts">
+        <label class="chk" for="eyeOnly"><input type="checkbox" id="eyeOnly"> 맨눈으로 보이는 별만 (6.5등급 이하)</label>
+        <label class="chk" for="tonightOnly"><input type="checkbox" id="tonightOnly"> 이 밤에 볼 수 있는 별만</label>
+      </div>
+      <button type="submit" id="go">별빛 친구 찾기</button>
+    </form>
+    <p class="locnote" id="gpsNote" hidden></p>
+    <span class="example" id="exTag">예시: 1980년 7월 4일생</span>
+    <div class="err" id="err" hidden></div>
+    <div class="summary" id="summary"></div>
+  </section>
+
+  <section aria-labelledby="tl-h">
+    <h2 id="tl-h">출생일 전후 2년, 별빛이 출발한 순간</h2>
+    <p class="sub">가로축은 별빛이 그 별을 떠난 시점입니다. 가운데 선이 생일이고, 점 좌우의 가는 선은 거리 측정 오차 범위입니다.</p>
+    <div class="panel tl" id="tl"></div>
+  </section>
+
+  <section aria-labelledby="list-h">
+    <h2 id="list-h">나의 별빛 친구</h2>
+    <p class="sub" id="listSub"></p>
+    <p class="sub" id="nightSub"></p>
+    <div class="list" id="list"></div>
+  </section>
+
+  <footer>
+    관측 가능 여부는 태양이 지평선 아래 12° 이하로 내려간 시간(항해박명 이후) 동안 별이 고도 10° 이상 떠 있는지로 판단합니다. 달빛, 구름, 건물·산 같은 지형은 반영하지 않습니다. 맨눈 판단은 선택한 하늘 밝기의 한계 등급과 별의 등급을 비교한 값입니다.<br>
+    거리는 SIMBAD의 연주시차(주로 Gaia DR3·Hipparcos)로 계산했고, 1광년 = 빛이 1년(365.25일) 동안 가는 거리로 보았습니다. 별 이름은 국제천문연맹(IAU) 공식 명칭(2026년 9월 승인분까지)이며, 6.5등급보다 어두운 별은 150광년 이내만 담았습니다. 거리 오차가 1년을 넘는 별은 실제 출발 시점이 표시보다 앞뒤로 달라질 수 있습니다.
+  </footer>
+</main>
+<script>
+const STARS = [["Proxima Centauri","프록시마 센타우리",11.01,4.2,0.0,"센타우루스자리","α Cen","태양에서 가장 가까운 항성; 외계행성 보유; 적색 주계열성; 이름 유래: Latin",217.42895,-62.67948],["Rigil Kentaurus","리길 켄타우루스",-0.1,4.4,0.0,"센타우루스자리","α Cen","태양계에서 가장 가까운 항성계(α Cen) 주성; 황색 주계열성; 이름 유래: Arabic",219.90206,-60.83397],["Toliman","톨리만",1.33,4.4,0.0,"센타우루스자리","α Cen","α Cen B; 태양계에서 가장 가까운 항성계; 주황색 주계열성; 이름 유래: Arabic",219.8961,-60.83753],["Barnard's Star","바너드별",9.54,6.0,0.0,"뱀주인자리","V2500 Oph","고유운동이 가장 큰 별; 태양에서 두 번째로 가까운 항성계; 적색 주계열성; BY Dra형 변광성(흑점 활동); 이름 유래: Contemporary",269.45402,4.66829],["Sirius","시리우스",-1.46,8.6,0.0,"큰개자리","α CMa","밤하늘에서 가장 밝은 별; 백색왜성 동반성(시리우스 B); 백색 주계열성; 분광쌍성; 이름 유래: Greek",101.28716,-16.71612],["Ran","란",3.73,10.5,0.0,"에리다누스자리","ε Eri","주황색 주계열성; BY Dra형 변광성(흑점 활동); 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Old Norse",53.23269,-9.45826],["Procyon","프로키온",0.37,11.5,0.1,"작은개자리","α CMi","겨울철 대삼각형; 황백색 준거성; 분광쌍성; 이름 유래: Greek",114.8255,5.22499],["Keid","케이드",4.43,16.3,0.0,"에리다누스자리","ο2 Eri","주황색 주계열성; 이름 유래: Arabic",63.818,-7.65287],["Altair","알타이르",0.76,16.7,0.0,"독수리자리","α Aql","여름철 대삼각형; 견우성; 백색 주계열성; δ 스쿠티형 변광성; 이름 유래: Arabic",297.69583,8.86832],["Alsafi","알사피",4.68,18.8,0.0,"용자리","σ Dra","주황색 주계열성; 이름 유래: Arabic",293.08996,69.66118],["Achird","아키르드",3.44,19.3,0.0,"카시오페이아자리","η Cas","황백색 주계열성; 이름 유래: Contemporary",12.27623,57.81518],["Guniibuu","구니부",5.08,19.4,0.1,"뱀주인자리","36 Oph","주황색 주계열성; 쌍성(이중성); 이름 유래: Aboriginal/ Kamilaroi/ Euahlayi",258.8366,-26.6017],["Vega","베가",0.03,25.0,0.1,"거문고자리","α Lyr","여름철 대삼각형; 직녀성; 백색 주계열성; δ 스쿠티형 변광성; 이름 유래: Arabic",279.23473,38.78369],["Fomalhaut","포말하우트",1.16,25.1,0.1,"남쪽물고기자리","α PsA","가을철 남쪽 하늘의 외로운 일등성; 잔해원반; 백색 주계열성; 이름 유래: Arabic",344.41269,-29.62224],["Tabit","타비트",3.19,26.2,0.0,"오리온자리","π3 Ori","황백색 주계열성; 이름 유래: Arabic",72.46005,6.96128],["Gar","가르",11.39,26.4,0.0,"처녀자리","GJ 486","적색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Basque",191.98594,9.7514],["Chara","카라",4.25,27.6,0.0,"사냥개자리","β CVn","황색 주계열성; 쌍성(이중성); 이름 유래: Greek",188.4356,41.35748],["Alula Australis","알룰라 아우스트랄리스",3.79,28.8,null,"큰곰자리","ξ UMa","황백색 주계열성; RS CVn형 변광성(활동성 쌍성); 이름 유래: Arabic",169.54555,31.52929],["Rana","라나",3.54,29.6,0.1,"에리다누스자리","δ Eri","주황색; 이름 유래: Latin",55.81209,-9.76339],["Añañuca","아냐누카",9.98,30.7,0.0,"돛자리","GJ 367","적색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Spanish",146.12432,-45.77651],["Noquisi","노퀴시",10.61,31.9,0.0,"사자자리","GJ 436","적색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Cherokee",175.54622,26.70657],["Hoerikwaggo","후리크와고",5.01,33.3,0.0,"테이블산자리","α Men","황색 주계열성; 이름 유래: San / Khoekhoe",92.5603,-74.75304],["Pollux","폴룩스",1.14,33.8,0.1,"쌍둥이자리","β Gem","쌍둥이자리에서 가장 밝은 별; 외계행성 보유; 주황색 거성; 이름 유래: Greek",116.32896,28.0262],["Tianji","톈지",2.8,35.0,0.2,"헤라클레스자리","ζ Her","황색 준거성; 분광쌍성; 이름 유래: Chinese",250.3215,31.60272],["Deltoton","델토톤",4.83,35.6,0.2,"삼각형자리","δ Tri","황색 주계열성; 분광쌍성; 이름 유래: Greek",34.26346,34.22423],["Denebola","데네볼라",2.13,35.9,0.2,"사자자리","β Leo","백색 주계열성; δ 스쿠티형 변광성; 이름 유래: Arabic",177.26491,14.57206],["Zavijava","자비야바",3.6,35.9,0.1,"처녀자리","β Vir","황백색 주계열성; 이름 유래: Arabic",177.67383,1.76472],["Muning","무닝",3.84,36.4,0.1,"뱀자리","γ Ser","황백색 주계열성; 이름 유래: Wardaman",239.11326,15.66161],["Arcturus","아르크투루스",-0.05,36.7,0.2,"목동자리","α Boo","북반구 하늘에서 가장 밝은 별; 주황색 거성; 이름 유래: Greek",213.9153,19.18241],["Muphrid","무프리드",2.68,37.2,0.5,"목동자리","η Boo","황색 준거성; 분광쌍성; 이름 유래: Arabic",208.67116,18.39772],["Deneb Algedi","데네브 알게디",2.83,38.7,0.1,"염소자리","δ Cap","백색 거성; 분광쌍성; 이름 유래: Arabic",326.76018,-16.12729],["Jiu","주",3.77,38.8,0.1,"페가수스자리","ι Peg","황백색 주계열성; 분광쌍성; 이름 유래: Chinese",331.75277,25.3451],["Porrima","포리마",2.74,39.2,0.2,"처녀자리","γ Vir","황백색 주계열성; 이름 유래: Latin",190.41512,-1.4494],["Quadrans","콰드란스",5.14,40.8,0.8,"목동자리","44 Boo A","황색 주계열성; 쌍성(이중성); 이름 유래: Latin",225.94679,47.65398],["Copernicus","코페르니쿠스",5.96,41.1,0.0,"게자리","55 Cnc","주황색 준거성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Latin",120.87661,28.33082],["Capella","카펠라",0.08,42.8,0.3,"마차부자리","α Aur","겨울철 육각형; 황색 거성; 분광쌍성; 이름 유래: Latin",79.17233,45.99799],["Titawin","티타윈",4.1,44.0,0.1,"안드로메다자리","υ And","황백색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Amazigh",24.19934,41.40546],["Alshain","알샤인",3.71,44.4,0.1,"독수리자리","β Aql","황색 준거성; 이름 유래: Persian",298.8283,6.40676],["Puwuh Atarung","푸우 아타룽",4.12,44.5,0.1,"물고기자리","ι Psc","황백색 주계열성; 이름 유래: Balinese",354.98767,5.62629],["Errai","에라이",3.21,45.0,0.1,"케페우스자리","γ Cep","주황색 거성; 분광쌍성; 이름 유래: Arabic",345.65581,77.63236],["Chalawan","찰라완",5.05,45.3,0.1,"큰곰자리","47 UMa","황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Thai",150.9911,40.43026],["Dalim","달림",3.98,45.7,0.1,"화로자리","α For","황백색 주계열성; 이름 유래: Arabic",48.01887,-28.98762],["Talitha","탈리타",3.13,47.3,0.1,"큰곰자리","ι UMa","백색; 쌍성(이중성); 이름 유래: Arabic",134.80189,48.04183],["Sharjah","샤르자",11.34,47.5,0.0,"전갈자리","HIP 79431","적색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Arabic",243.17408,-18.8755],["Orkaria","오르카리아",14.71,47.8,0.0,"뱀주인자리","GJ 1214","적색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Maa",258.82889,4.96391],["Batsũ̀","밧수",15.26,48.5,0.0,"인디언자리","LHS 3844","외계행성 보유 (NameExoWorlds 명명); 이름 유래: Bribri",340.49215,-69.16898],["Rasalhague","라살하게",2.07,48.6,0.8,"뱀주인자리","α Oph","백색 준거성; 쌍성(이중성); 이름 유래: Arabic",263.73362,12.56004],["Alchiba","알키바",4.01,48.8,0.1,"까마귀자리","α Crv","황백색 주계열성; 이름 유래: Arabic",182.10341,-24.72888],["Alderamin","알데라민",2.46,49.0,0.1,"케페우스자리","α Cep","백색 주계열성; 이름 유래: Arabic",319.64488,62.58557],["Guqi","구치",3.36,50.6,0.8,"독수리자리","δ Aql","황백색 준거성; 쌍성(이중성); 이름 유래: Chinese",291.37459,3.11478],["Helvetios","헬베티오스",5.46,50.6,0.1,"페가수스자리","51 Peg","황색 준거성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Latin",344.36659,20.76883],["Castor","카스토르",1.58,50.9,3.0,"쌍둥이자리","α Gem","6중성계; 백색 주계열성; 쌍성(이중성); 이름 유래: Greek",113.64947,31.88828],["Cervantes","세르반테스",5.15,50.9,0.1,"제단자리","μ Ara","황색 준거성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Spanish",266.03626,-51.83405],["Tepiamenit","테피아메니트",4.49,50.9,0.1,"목동자리","τ Bootis","황백색 준거성; 이름 유래: Egyptian",206.81558,17.45689],["Genghe","겅허",4.47,51.4,0.1,"목동자리","σ Bootis","황백색 주계열성; 이름 유래: Chinese",218.67007,29.74513],["Tugongli","투궁리",4.2,53.5,0.2,"페가수스자리","ξ Peg","황백색 주계열성; 이름 유래: Chinese",341.67325,12.17289],["Xami","샤미",3.19,53.5,0.2,"컴퍼스자리","α Cir","백색 주계열성; α² CVn형 변광성(화학특이별); 이름 유래: \\Xam-dialect of Khoe",220.62675,-64.97513],["Caph","카프",2.27,54.7,0.3,"카시오페이아자리","β Cas","황백색 거성; δ 스쿠티형 변광성; 이름 유래: Arabic",2.29452,59.14978],["Diadem","디아뎀",4.32,58.1,0.9,"머리털자리","α Com","황백색 주계열성; 쌍성(이중성); 이름 유래: Contemporary",197.49702,17.52946],["Kulou","쿠러우",2.73,58.2,1.2,"센타우루스자리","ι Cen","백색 주계열성; 이름 유래: Chinese",200.14922,-36.7123],["Zosma","조스마",2.53,58.4,0.3,"사자자리","δ Leo","백색 준거성; 이름 유래: Greek",168.52709,20.52372],["Sheratan","셰라탄",2.65,58.7,0.6,"양자리","β Ari","백색 주계열성; 분광쌍성; 이름 유래: Arabic",28.66005,20.80803],["Menkent","멘켄트",2.05,58.8,0.2,"센타우루스자리","θ Cen","주황색 거성; 이름 유래: Arabic",211.67061,-36.36995],["Alzirr","알지르",3.36,60.2,0.3,"쌍둥이자리","ξ Gem","황백색 준거성; 이름 유래: Arabic",101.32235,12.89559],["Tepennekhet","테펜네케트",4.49,60.3,0.7,"조랑말자리","δ Equ","황백색 주계열성; 분광쌍성; 이름 유래: Egyptian",318.62006,10.00698],["Wasat","와사트",3.53,60.7,0.3,"쌍둥이자리","δ Gem","황백색 주계열성; 분광쌍성; 이름 유래: Arabic",110.03073,21.9823],["Maru","마루",13.7,62.7,0.0,"날치자리","WD 0806-661","백색왜성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Korean",121.72397,-66.30464],["Mothallah","모탈라",3.42,63.5,0.7,"삼각형자리","α Tri","황백색 거성; 분광쌍성; 이름 유래: Arabic",28.27044,29.57882],["Tureis","투레이스",2.81,63.5,0.3,"고물자리","ρ Pup","황백색 밝은 거성; δ 스쿠티형 변광성; 이름 유래: Arabic",121.88604,-24.30432],["Larawag","라라왁",2.29,63.7,0.3,"전갈자리","ε Sco","주황색 거성; 이름 유래: Aboriginal/ Wardaman",252.54088,-34.29323],["Phoenicia","페니키아",7.79,64.0,0.0,"독수리자리","V1703 Aql","주황색 주계열성; BY Dra형 변광성(흑점 활동); 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Latin",303.49936,-0.86688],["Hamal","하말",2.01,65.8,0.3,"양자리","α Ari","주황색 거성; 이름 유래: Arabic",31.79336,23.46242],["Enduri Senggu","엔두리 셍구",3.73,66.3,0.5,"백조자리","τ Cyg","황백색 준거성; δ 스쿠티형 변광성; 이름 유래: Manchu",318.69789,38.04532],["Aldebaran","알데바란",0.86,66.6,1.0,"황소자리","α Tau","황소의 눈; 히아데스 성단 방향; 주황색; 장주기 변광성 후보; 이름 유래: Arabic",68.98016,16.5093],["Syrma","시르마",4.08,71.8,0.5,"처녀자리","ι Vir","황백색 거성; 이름 유래: Greek",214.00362,-6.00055],["Darlugal","다를루갈",3.52,72.8,0.4,"토끼자리","ζ Lep","백색 준거성; 이름 유래: Sumerian",86.73892,-14.82195],["Dziban","지반",4.55,74.2,1.5,"용자리","ψ1 Dra","황백색 준거성; 분광쌍성; 이름 유래: Arabic",265.48359,72.14887],["Unukalhai","우누크알하이",2.63,74.2,0.8,"뱀자리","α Ser","주황색 거성; 이름 유래: Arabic",236.06698,6.42563],["Heze","헤제",3.38,74.6,0.6,"처녀자리","ζ Vir","백색 주계열성; 이름 유래: Greco-Hebrew",203.6733,-0.59582],["Sarin","사린",3.13,75.1,0.3,"헤라클레스자리","δ Her","백색 준거성; 분광쌍성; 이름 유래: unknown",258.75796,24.83921],["Aljanah","알자나",2.48,75.5,1.6,"백조자리","ε Cyg","주황색 거성; 쌍성(이중성); 이름 유래: Arabic",311.5528,33.97033],["Zubenelgenubi","주벤엘게누비",2.75,75.8,0.3,"천칭자리","α2 Lib","백색 준거성; 분광쌍성; 이름 유래: Arabic",222.71964,-16.04178],["Kaus Borealis","카우스 보레알리스",2.81,76.0,0.4,"궁수자리","λ Sgr","주황색 거성; 이름 유래: Arabic",276.99267,-25.4217],["Koeia","코에이아",10.25,76.4,0.0,"에리다누스자리","HIP 12961","주황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Taíno",41.67869,-23.08661],["Terebellum","테레벨룸",4.7,76.4,1.0,"궁수자리","ω Sgr","황색 준거성; 분광쌍성; 이름 유래: Latin",298.95984,-26.29936],["Alphecca","알페카",2.24,77.2,1.8,"북쪽왕관자리","α CrB","백색 준거성; 분광쌍성; 이름 유래: Arabic",233.67195,26.71468],["Regulus","레굴루스",1.4,79.3,0.7,"사자자리","α Leo","사자의 심장; 황도 근처; 청백색 준거성; 이름 유래: Latin",152.09296,11.96721],["Kaffaljidhma","카팔지드마",3.47,79.6,1.2,"고래자리","γ Cet","백색 주계열성; 쌍성(이중성); 이름 유래: Arabic",40.82488,3.23582],["Alsephina","알세피나",1.93,80.6,0.8,"돛자리","δ Vel","백색 준거성; 쌍성(이중성); 이름 유래: Arabic",120.74506,-54.70882],["Honores","호노레스",4.52,80.9,0.2,"안드로메다자리","7 And","황백색 주계열성; 이름 유래: Latin",348.13751,49.40621],["Megrez","메그레즈",3.32,80.9,0.4,"큰곰자리","δ UMa","북두칠성; 백색 주계열성; 이름 유래: Arabic",183.8565,57.03262],["Menkalinan","멘칼리난",1.9,81.1,0.5,"마차부자리","β Aur","백색 준거성; 분광쌍성; 이름 유래: Arabic",89.88218,44.94743],["Alcor","알코르",4.01,81.7,0.3,"큰곰자리","80 UMa","북두칠성 미자르의 동반별; 백색 주계열성; 쌍성(이중성); 이름 유래: Arabic",201.30641,54.98796],["Tegmine","테그미네",4.67,81.8,1.7,"게자리","ζ Cnc","황백색 주계열성; 쌍성(이중성); 이름 유래: Latin",120.20354,17.64778],["Danfeng","단펑",11.02,82.1,0.1,"큰부리새자리","L 168-9","적색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Chinese (Simplified)",350.03135,-60.06518],["Alioth","알리오트",1.77,82.6,0.4,"큰곰자리","ε UMa","북두칠성; 백색 거성; α² CVn형 변광성(화학특이별); 이름 유래: Arabic",193.50729,55.95982],["Cebalrai","케발라이",2.75,83.1,0.4,"뱀주인자리","β Oph","주황색 거성; 이름 유래: Arabic",265.86813,4.5673],["Phecda","펙다",2.44,83.2,0.8,"큰곰자리","γ UMa","북두칠성; 백색 주계열성; 방출선별; 이름 유래: Arabic",178.4577,53.69476],["Merak","메라크",2.37,84.5,2.5,"큰곰자리","β UMa","북두칠성; 백색 준거성; 이름 유래: Arabic",165.46033,56.38243],["Udkadua","우드카두아",3.82,84.6,0.3,"안드로메다자리","λ And","황색 준거성; RS CVn형 변광성(활동성 쌍성); 이름 유래: Sumerian",354.39101,46.45815],["Ankaa","안카아",2.38,84.7,1.6,"봉황자리","α  Phe","주황색 거성; 분광쌍성; 이름 유래: Arabic",6.57105,-42.30599],["Okab","오카브",2.99,85.3,0.8,"독수리자리","ζ Aql","백색 준거성; 이름 유래: Arabic",286.35253,13.86348],["Algorab","알고라브",2.94,85.7,0.9,"까마귀자리","δ Crv","백색 준거성; 이름 유래: Arabic",187.46606,-16.51543],["Mizar","미자르",2.22,85.8,3.9,"큰곰자리","ζ UMa","북두칠성; 알코르와 맨눈 이중성; 쌍성(이중성); 이름 유래: Arabic",195.39876,54.92536],["Seginus","세기누스",3.02,86.0,0.6,"목동자리","γ Boo","백색 준거성; δ 스쿠티형 변광성; 이름 유래: Latin",218.01947,38.30825],["Ascella","아스켈라",2.59,88.2,2.1,"궁수자리","ζ Sgr","백색 주계열성; 쌍성(이중성); 이름 유래: Latin",285.65304,-29.88006],["Sabik","사비크",2.42,88.4,1.9,"뱀주인자리","η Oph","백색 준거성; 쌍성(이중성); 이름 유래: Arabic",257.59432,-15.72491],["Wazn","와즌",3.12,88.4,0.3,"비둘기자리","β Col","주황색 거성; 이름 유래: Arabic",87.73997,-35.76831],["Gacrux","가크룩스",1.64,88.6,0.4,"남십자자리","γ Cru","남십자자리; 적색 거성; 이름 유래: Contemporary",187.7915,-57.11321],["Biham","비함",3.55,88.7,2.7,"페가수스자리","θ Peg","백색 주계열성; 이름 유래: Arabic",332.54995,6.19792],["Alrakis","알라키스",4.91,89.5,1.1,"용자리","μ Dra","황백색 주계열성; 쌍성(이중성); 이름 유래: Arabic",255.08892,54.47003],["Gumala","구말라",6.24,89.8,0.1,"궁수자리","V5652 Sgr","황백색 주계열성; BY Dra형 변광성(흑점 활동); 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Malay",288.88846,-24.17935],["Algol","알골",2.12,89.9,3.5,"페르세우스자리","β Per","대표적 식쌍성(악마의 별); 청백색 주계열성; 분광쌍성; 이름 유래: Arabic",47.04222,40.95565],["Cursa","쿠르사",2.79,90.0,0.9,"에리다누스자리","β Eri","백색 준거성; 이름 유래: Arabic",76.9624,-5.0865],["Athebyne","아테비네",2.74,91.3,0.7,"용자리","η Dra","황색 거성; 이름 유래: Arabic",245.99786,61.51421],["Macondo","마콘도",8.3,92.9,0.1,"공기펌프자리","HD 93083","주황색 준거성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Spanish",161.08715,-33.57702],["Ebla","에블라",8.59,94.0,0.1,"물고기자리","HD 218566","주황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: NEWC",47.2947,-2.26075],["Flegetonte","플레게톤테",8.07,95.7,0.1,"처녀자리","HD 102195","주황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Italian",176.42622,2.82148],["Kaewkosin","깨우꼬신",11.36,95.9,0.1,"게자리","GJ 3470","적색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 등급은 G밴드 값; 이름 유래: Thai",119.77433,15.39145],["Taiyi","타이이",5.22,96.0,0.2,"용자리","8 Dra","황백색 준거성; γ Dor형 변광성; 이름 유래: Chinese",193.86895,65.43847],["Diphda","디프다",2.01,96.3,0.5,"고래자리","β Cet","황색 거성; 이름 유래: Arabic",10.89738,-17.98661],["Kurhah","쿠르하",4.29,96.5,3.0,"케페우스자리","ξ Cep","백색; 쌍성(이중성); 이름 유래: Arabic",330.94257,64.62798],["Alpheratz","알페라츠",2.06,97.0,1.0,"안드로메다자리","α And","청백색 준거성; α² CVn형 변광성(화학특이별); 이름 유래: Arabic",2.09692,29.09043],["Bake-eo","바케에오",3.75,97.0,0.8,"뱀주인자리","γ Oph","백색 주계열성; 이름 유래: Marshallese",266.97317,2.70728],["Citalá","시탈라",6.28,97.6,0.1,"외뿔소자리","HD 52265","황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Nawat language",105.07515,-5.36716],["Altais","알타이스",3.07,97.8,0.5,"용자리","δ Dra","황색 거성; 이름 유래: Arabic",288.13876,67.66154],["Praecipua","프라이키푸아",3.83,99.1,0.5,"작은사자자리","46 LMi","주황색; 이름 유래: Latin",163.32787,34.21489],["Ruchbah","루크바",2.68,99.4,0.4,"카시오페이아자리","δ Cas","백색 준거성; 식쌍성; 이름 유래: Arabic",21.45396,60.23528],["Cor Caroli","코르 카롤리",2.88,99.7,1.8,"사냥개자리","α2 CVn","백색 주계열성; α² CVn형 변광성(화학특이별); 이름 유래: Latin",194.00694,38.31838],["Xuange","쉬안거",4.18,100.1,0.4,"목동자리","λ Boo","백색 주계열성; δ 스쿠티형 변광성; 이름 유래: Chinese",214.09591,46.0883],["Edasich","에다시크",3.29,100.3,0.4,"용자리","ι Dra","주황색 거성; 이름 유래: Arabic",231.23239,58.96607],["Rotanev","로타네브",3.63,100.9,1.5,"돌고래자리","β Del","황백색 준거성; 쌍성(이중성); 이름 유래: Latin",309.38726,14.59509],["Alnair","알나이르",1.71,101.0,0.7,"두루미자리","α Gru","청백색 주계열성; 이름 유래: Arabic",332.05827,-46.96097],["Alnasl","알나슬",2.99,101.1,2.4,"궁수자리","γ2 Sgr","주황색; 이름 유래: Arabic",271.45203,-30.42409],["Stellio","스텔리오",3.77,103.6,0.7,"도마뱀자리","α Lac","백색 주계열성; 이름 유래: Latin",337.82292,50.28249],["Zibbatu","지바투",6.0,103.7,0.2,"물고기자리","112 Psc","황색 준거성; 이름 유래: Akkadian",285.76586,-19.24568],["Alkaid","알카이드",1.86,103.9,0.8,"큰곰자리","η UMa","북두칠성; 청백색 주계열성; 이름 유래: Arabic",206.88516,49.31327],["Mönch","묀히",8.04,104.1,0.1,"처녀자리","HD 130322","주황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: German",221.88636,-0.28147],["Tapecue","타페쿠에",8.1,106.1,0.1,"용골자리","HD 63765","황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Guarani",116.95717,-54.26414],["Yed Posterior","예드 포스테리오르",3.23,106.9,0.7,"뱀주인자리","ε Oph","황색 거성; 이름 유래: Arabic",244.58038,-4.69251],["Idigna","이디그나",5.54,107.5,2.6,"물고기자리","π Psc","황백색 주계열성; 이름 유래: Sumerian",24.27469,12.14178],["Pili","필리",4.02,107.7,0.8,"물고기자리","ω Psc","황백색 주계열성; 분광쌍성; 이름 유래: Chinese",359.82788,6.86332],["Vindemiatrix","빈데미아트릭스",2.79,108.0,0.7,"처녀자리","ε Vir","황색 거성; 이름 유래: Latin",195.54415,10.95915],["Algedi","알게디",3.58,109.0,0.6,"염소자리","α2 Cap","황색 거성; 이름 유래: Arabic",304.51357,-12.54485],["Tupi","투피",7.12,109.2,0.1,"그물자리","HD 23079","황백색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Tupi languages",54.92957,-52.91584],["Alhena","알헤나",1.92,109.3,8.2,"쌍둥이자리","γ Gem","백색 준거성; 분광쌍성; 이름 유래: Arabic",99.42796,16.39928],["Natasha","나타샤",8.54,109.3,0.1,"돛자리","HD 85390","주황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Zambian",147.5104,-49.79027],["Cocibolca","코시볼카",7.78,111.2,0.1,"조각가자리","HD 4208","황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Spanish",11.11105,-26.51568],["Grumium","그루미움",3.75,112.2,0.4,"용자리","ξ Dra","주황색 거성; 이름 유래: Latin",268.38221,56.87264],["Felixvarela","펠릭스바렐라",9.62,112.6,0.1,"고래자리","BD-17 63","주황색 주계열성; 쌍성(이중성); 외계행성 보유 (NameExoWorlds 명명); 이름 유래: NEWC",7.14294,-16.22634],["Sadalbari","사달바리",3.48,112.7,0.7,"페가수스자리","μ Peg","황색; 이름 유래: Arabic",342.5008,24.60158],["Sceptrum","스켑트룸",3.87,112.9,0.7,"에리다누스자리","53 Eri","주황색 거성; 쌍성(이중성); 이름 유래: Latin",69.5451,-14.30403],["Miaplacidus","미아플라키두스",1.69,113.2,0.4,"용골자리","β Car","백색 거성; 이름 유래: Latin",138.29991,-69.71721],["Misam","미삼",3.81,113.5,0.6,"페르세우스자리","κ Per","황색 거성; 이름 유래: Arabic",47.37418,44.85746],["Lusitânia","루시타니아",8.1,113.9,0.1,"외뿔소자리","HD 45652","주황색; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: NEWC",97.30497,10.93389],["Apdu","압두",4.0,116.6,1.9,"삼각형자리","γ Tri","백색 주계열성; 이름 유래: Egyptian",34.32861,33.8472],["Nusakan","누사칸",3.68,116.8,4.1,"북쪽왕관자리","β CrB","황백색 주계열성; α² CVn형 변광성(화학특이별); 이름 유래: Arabic",231.95731,29.10569],["Dhanishta","다니슈타",4.96,117.0,0.4,"돌고래자리","γ1 Del","황백색 주계열성; 이름 유래: Sanskrit",311.66192,16.12413],["Emiw","에미우",8.06,117.8,0.1,"큰부리새자리","HD 7199","주황색 준거성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Makhuwa",17.69676,-66.18816],["Moth","모스",8.22,118.9,0.1,"고물자리","HD 61005","황색 주계열성; 이름 유래: English",113.94776,-32.2039],["Zibal","지발",4.8,119.1,0.6,"에리다누스자리","ζ Eri","백색 주계열성; 분광쌍성; 이름 유래: Arabic",48.95844,-8.81973],["Meridiana","메리디아나",4.09,120.4,1.6,"남쪽왕관자리","α CrA","백색 주계열성; 이름 유래: Latin",287.36809,-37.90447],["Qigong","치궁",3.49,120.5,0.6,"목동자리","δ Bootis A","황색 거성; 이름 유래: Chinese",228.87568,33.31483],["Tusizuo","투쓰쭤",3.84,121.0,0.5,"헤라클레스자리","109 Her","주황색 거성; 쌍성(이중성); 이름 유래: Chinese",275.92454,21.76975],["Elgafar","엘가파르",4.84,121.3,0.6,"처녀자리","ϕ Vir","황색 준거성; 이름 유래: Arabic",217.05058,-2.22796],["Alkalurops","알칼루롭스",4.31,122.7,3.6,"목동자리","μ Boo","황백색 준거성; 쌍성(이중성); 이름 유래: Latin",225.40817,37.37716],["Ceibo","세이보",9.37,122.8,0.1,"카멜레온자리","HD 63454","주황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Spanish",114.84106,-78.27897],["Dofida","도피다",7.17,122.9,0.1,"센타우루스자리","HD 117618","황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Nias language",203.10648,-47.27137],["Dubhe","두베",1.79,122.9,2.2,"큰곰자리","α UMa","북두칠성; 황색 거성; 분광쌍성; 이름 유래: Arabic",165.93166,61.75087],["Bubup","부부프",6.69,124.1,0.1,"테이블산자리","HD 38283","황백색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Boonwurrung",84.2584,-73.69935],["Beid","베이드",4.03,124.9,0.9,"에리다누스자리","ο1 Eri","황백색 거성; δ 스쿠티형 변광성; 이름 유래: Arabic",62.96641,-6.83758],["Lembu","렘부",5.08,124.9,3.6,"황소자리","97 Tau","백색 준거성; δ 스쿠티형 변광성; 이름 유래: Proto-Mon-Khmer",72.8436,18.83986],["Rasalas","라살라스",3.88,125.0,0.9,"사자자리","μ Leo","주황색 거성; 이름 유래: Arabic",148.1909,26.00695],["Sadachbia","사다크비아",3.83,126.1,2.8,"물병자리","γ Aqr","백색 주계열성; 이름 유래: Arabic",335.41405,-1.38735],["Tupã","투팡",6.99,126.6,0.1,"남십자자리","HD 108147","황백색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Guarani",186.44278,-64.02209],["Alaybasan","알라이바산",3.0,126.9,1.7,"삼각형자리","β Tri","백색 거성; 분광쌍성; 이름 유래: Arabic",32.38595,34.9873],["Naga","나가",3.0,127.8,1.4,"바다뱀자리","γ Hya","황색 거성; 분광쌍성; 이름 유래: Sanskrit",199.73041,-23.17151],["Uklun","우클룬",7.47,128.6,0.1,"센타우루스자리","HD 102117","황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Pitkern",176.21025,-58.70371],["Ashlesha","아슐레샤",3.38,129.3,5.0,"바다뱀자리","ε Hya","황색 거성; 쌍성(이중성); 이름 유래: Sanskrit",131.6938,6.4188],["Algieba","알기에바",1.98,130.1,2.7,"사자자리","γ1 Leo","주황색 거성; 쌍성(이중성); 이름 유래: Arabic",154.99313,19.84149],["Kenemu","케네무",3.93,130.5,1.3,"궁수자리","ρ1 Sgr","백색 준거성; δ 스쿠티형 변광성; 이름 유래: Egyptian",290.41817,-17.8472],["Pincoya","핀코야",9.66,130.5,0.2,"궁수자리","HD 164604","주황색 주계열성; 쌍성(이중성); 외계행성 보유 (NameExoWorlds 명명); 이름 유래: NEWC",270.77889,-28.56066],["Kochab","코카브",2.08,130.9,0.6,"작은곰자리","β UMi","주황색 거성; 이름 유래: Arabic",222.67636,74.1555],["Fuyue","푸웨",3.21,131.9,0.8,"전갈자리","G Sco","주황색 거성; 이름 유래: Chinese",267.4645,-37.04328],["Paushna","파우슈나",6.1,132.1,0.3,"물고기자리","ζ Psc B","황백색 주계열성; 분광쌍성; 이름 유래: Sanskrit",18.43856,7.57824],["Karaka","카라카",8.71,132.5,0.1,"극락조자리","HD 137388","주황색 준거성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Māori",233.91634,-80.20459],["Huagai","화가이",4.61,132.9,4.4,"카시오페이아자리","ι Cas","백색 거성; α² CVn형 변광성(화학특이별); 이름 유래: Chinese",37.26632,67.40239],["Kalausi","칼라우시",8.23,133.2,0.1,"돛자리","HD 83443","주황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Dholuo",144.29928,-43.2722],["Markab","마르카브",2.48,133.3,1.0,"페가수스자리","α Peg","백색 준거성; 이름 유래: Arabic",346.19022,15.20527],["Revati","레바티",5.19,133.3,0.6,"물고기자리","ζ Psc","백색 준거성; 이름 유래: Sanskrit",18.43286,7.57536],["Elnath","엘나트",1.65,133.9,1.9,"황소자리","β Tau","청백색 거성; 이름 유래: Arabic",81.57297,28.60745],["Maenalus","마이날루스",3.73,134.3,1.3,"처녀자리","109 Virginis","백색 거성; 이름 유래: Latin",221.56218,1.89288],["Alya","알리아",4.57,134.4,1.0,"뱀자리","θ1 Ser","백색 주계열성; 이름 유래: Arabic",284.05495,4.20361],["Azha","아자",3.87,134.7,1.0,"에리다누스자리","η Eri","주황색; 이름 유래: Arabic",44.10687,-8.89814],["Subra","수브라",3.52,134.8,1.3,"사자자리","ο Leo","황백색 거성; 분광쌍성; 이름 유래: Arabic",145.28763,9.89231],["Yunyu","윈위",3.7,134.8,1.7,"물고기자리","γ Psc","황색 거성; 이름 유래: Chinese",349.2914,3.28229],["Alasia","알라시아",7.95,136.0,0.1,"뱀자리","HD 168746","황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: NEWC",275.45743,-11.92268],["Heryibwia","헤리브위아",3.11,136.5,2.8,"궁수자리","η Sgr","적색 거성; 이름 유래: Egyptian",274.40682,-36.76169],["Asellus Australis","아셀루스 아우스트랄리스",3.94,136.9,1.1,"게자리","δ Cnc","주황색; 쌍성(이중성); 이름 유래: Latin",131.17125,18.15431],["Alqiladah","알킬라다",3.77,137.0,0.9,"궁수자리","ο Sgr","황색 거성; 이름 유래: Arabic",286.17076,-21.7415],["Nenque","넹케",7.72,137.8,0.1,"봉황자리","HD 6434","황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Waorani",16.16729,-39.48822],["Almighzal","알미그잘",3.88,138.5,0.6,"백조자리","η Cyg","주황색 거성; 이름 유래: Arabic",299.07655,35.08342],["Achernar","아케르나르",0.46,139.4,3.4,"에리다누스자리","α Eri","자전이 매우 빨라 납작한 별; 청백색 주계열성; Be형 방출선별; 이름 유래: Arabic",24.42852,-57.23675],["Arkab Posterior","아르카브 포스테리오르",4.27,139.6,1.6,"궁수자리","β2 Sgr","황백색 주계열성; 이름 유래: Arabic",290.80474,-44.79978],["Nervia","네르비아",8.1,139.9,0.1,"마차부자리","HD 49674","황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Latin",102.87715,40.86776],["Skat","스카트",3.28,140.9,7.1,"물병자리","δ Aqr","백색 주계열성; 이름 유래: Arabic",343.66253,-15.82082],["Bagu","바구",3.72,141.5,2.8,"마차부자리","δ Aur","주황색 거성; 분광쌍성; 이름 유래: Chinese",89.88174,54.28474],["Kaus Australis","카우스 아우스트랄리스",1.81,143.3,1.5,"궁수자리","ε Sgr","청백색 준거성; 이름 유래: Arabic",276.04299,-34.38462],["Ain","아인",3.53,145.8,1.1,"황소자리","ε Tau","황색 거성; 쌍성(이중성); 이름 유래: Arabic",67.15417,19.18043],["Baltesha","발테샤",4.05,146.1,3.3,"북쪽왕관자리","γ CrB A","백색 주계열성; 쌍성(이중성); 이름 유래: Sumerian",235.68571,26.29563],["Bélénos","벨레노스",7.12,146.2,0.1,"물고기자리","HD 8574","황백색; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: French",21.30215,28.56669],["Itonda","이톤다",7.47,146.5,0.2,"두루미자리","HD 208487","황색 주계열성; 외계행성 보유 (NameExoWorlds 명명); 이름 유래: Myene",329.3327,-37.76362],["Tiangang","톈강",4.29,147.7,1.4,"남쪽물고기자리","β PsA","백색 주계열성; 이름 유래: Chinese",337.87638,-32.34608],["Kornephoros","코르네포로스",2.77,148.2,6.6,"헤라클레스자리","β Her","황색 거성; 분광쌍성; 이름 유래: Greek",247.555,21.48961],["Kraz","크라즈",2.64,148.2,1.6,"까마귀자리","β Crv","황색 밝은 거성; 이름 유래: unknown",188.59681,-23.39676],["Udang","우당",4.07,148.9,2.9,"염소자리","θ Cap","백색 주계열성; 이름 유래: Balinese",316.48679,-17.23286],["Chamukuy","차무쿠이",3.41,149.5,2.6,"황소자리","θ2 Tau","백색 거성; δ 스쿠티형 변광성; 이름 유래: Yucatec",67.16559,15.87087],["Tianjinnan","톈진난",3.21,149.5,0.9,"백조자리","ζ Cyg","황색; 분광쌍성; 이름 유래: Chinese",318.23411,30.2269],["Prima Hyadum","프리마 히아둠",3.65,150.5,1.3,"황소자리","γ Tau","황색 거성; 쌍성(이중성); 이름 유래: Latin",64.94835,15.62764],["Alrescha","알레샤",2.76,150.6,7.4,"물고기자리","α Psc","백색; α² CVn형 변광성(화학특이별); 이름 유래: Arabic",30.51126,30.51176],["Zhou","저우",3.67,151.1,2.1,"뱀자리","β Ser","백색 준거성; 이름 유래: Chinese",236.5469,15.42182],["Gienah","기에나",2.58,153.6,1.4,"까마귀자리","γ Crv","청백색 거성; 이름 유래: Arabic",183.95155,-17.54193],["Fawaris","파와리스",2.87,154.2,3.8,"백조자리","δ Cyg","청백색 준거성; 이름 유래: Arabic",296.24366,45.13081],["Eltanin","엘타닌",2.23,154.3,0.7,"용자리","γ Dra","주황색 거성; 이름 유래: Arabic",269.15154,51.4889],["Nihal","니할",2.84,156.3,1.5,"토끼자리","β Lep","황색 밝은 거성; 이름 유래: Arabic",82.06135,-20.75944],["Gang","강",3.94,156.5,1.4,"카시오페이아자리","50 Cas","백색 주계열성; 이름 유래: Chinese",30.85879,72.42129],["Merga","메르가",5.76,156.6,0.3,"목동자리","38 Boo","황백색 준거성; 이름 유래: Latin",222.32779,46.1162],["Salm","살름",4.58,157.5,0.9,"페가수스자리","τ Peg","백색 주계열성; δ 스쿠티형 변광성; 이름 유래: Arabic",350.15936,23.74036],["Kautoki","카우토키",4.36,157.8,1.0,"거문고자리","ζ1 Lyr","백색 주계열성; 분광쌍성; 이름 유래: Kapingamarangi",281.19315,37.60512],["Urquchillay","우르쿠칠라이",5.58,158.0,0.3,"거문고자리","ζ2 Lyr","황백색 주계열성; 이름 유래: Quechua",281.20083,37.5946],["Yed Prior","예드 프리오르",2.75,159.8,4.2,"뱀주인자리","δ Oph","적색 거성; 이름 유래: Arabic",243.58641,-3.69433]];
+// ── 천문 계산 (저정밀, 관측 판단용) ──
+const RAD=Math.PI/180;
+function jd(t){ return t/864e5 + 2440587.5; }
+function gmstDeg(t){ const d=jd(t)-2451545.0; return ((280.46061837 + 360.98564736629*d) % 360 + 360) % 360; }
+function sunRaDec(t){
+  const n=jd(t)-2451545.0, L=(280.460+0.9856474*n)%360, g=((357.528+0.9856003*n)%360)*RAD;
+  const lam=(L+1.915*Math.sin(g)+0.020*Math.sin(2*g))*RAD, eps=(23.439-0.0000004*n)*RAD;
+  const ra=Math.atan2(Math.cos(eps)*Math.sin(lam),Math.cos(lam))/RAD, dec=Math.asin(Math.sin(eps)*Math.sin(lam))/RAD;
+  return [(ra+360)%360, dec];
+}
+function altAz(raDeg,decDeg,t,lat,lon){
+  const H=((gmstDeg(t)+lon-raDeg)%360+360)%360*RAD, d=decDeg*RAD, p=lat*RAD;
+  const sinA=Math.sin(d)*Math.sin(p)+Math.cos(d)*Math.cos(p)*Math.cos(H), alt=Math.asin(sinA);
+  const az=Math.atan2(-Math.cos(d)*Math.sin(H), Math.sin(d)*Math.cos(p)-Math.cos(d)*Math.sin(p)*Math.cos(H));
+  return [alt/RAD, (az/RAD+360)%360];
+}
+// 날짜(현지) 정오부터 다음날 정오까지 10분 간격, 태양고도 −12° 이하를 '밤'으로 봄
+function nightSamples(dateStr,lat,lon,tzOffsetMin){
+  const [Y,M,D]=dateStr.split('-').map(Number);
+  const start=Date.UTC(Y,M-1,D,12,0)-tzOffsetMin*6e4, out=[];
+  for(let i=0;i<=144;i++){ const t=start+i*6e5, [r,dc]=sunRaDec(t); out.push({t,dark:altAz(r,dc,t,lat,lon)[0]<=-12}); }
+  return out;
+}
+const DIRS=['북','북북동','북동','동북동','동','동남동','남동','남남동','남','남남서','남서','서남서','서','서북서','북서','북북서'];
+const dirKo=az=>DIRS[Math.round(az/22.5)%16];
+function visibility(star,samples,lat,lon,limMag){
+  const [, , mag, , , , , , ra, dec]=star;
+  const maxPossible=90-Math.abs(lat-dec);
+  if(maxPossible<10) return {code:'never',maxPossible};
+  let best=null, first=null, last=null;
+  for(const s of samples){ if(!s.dark) continue;
+    const [a,z]=altAz(ra,dec,s.t,lat,lon);
+    if(a>=10){ if(!first) first=s.t; last=s.t; if(!best||a>best.alt) best={t:s.t,alt:a,az:z}; } }
+  if(!best) return {code:'below',maxPossible};
+  const bright = mag!=null && mag<=limMag;
+  return {code: bright?'visible':'scope', best, first, last};
+}
+// 자정 무렵 남중하는 시기(대략): 태양 적경 = 별 적경 + 180°
+function bestSeason(ra){
+  const days=((ra+180)%360)/360*365.2422; const d=new Date(Date.UTC(2026,2,20)+days*864e5);
+  const m=d.getUTCMonth()+1, dd=d.getUTCDate(); return `${m}월 ${dd<=10?'초순':dd<=20?'중순':'하순'}`;
+}
+
+const CITIES=[
+ ['서울',37.5665,126.9780,'Asia/Seoul'],['부산',35.1796,129.0756,'Asia/Seoul'],['인천',37.4563,126.7052,'Asia/Seoul'],['대구',35.8714,128.6014,'Asia/Seoul'],
+ ['대전',36.3504,127.3845,'Asia/Seoul'],['광주',35.1595,126.8526,'Asia/Seoul'],['울산',35.5384,129.3114,'Asia/Seoul'],['세종',36.4800,127.2890,'Asia/Seoul'],
+ ['수원',37.2636,127.0286,'Asia/Seoul'],['춘천',37.8813,127.7298,'Asia/Seoul'],['강릉',37.7519,128.8761,'Asia/Seoul'],['청주',36.6424,127.4890,'Asia/Seoul'],
+ ['전주',35.8242,127.1480,'Asia/Seoul'],['포항',36.0190,129.3435,'Asia/Seoul'],['목포',34.8118,126.3922,'Asia/Seoul'],['제주',33.4996,126.5312,'Asia/Seoul'],
+ ['서귀포',33.2541,126.5601,'Asia/Seoul'],['영월 (별마로천문대)',37.1837,128.4617,'Asia/Seoul'],
+ ['도쿄',35.6762,139.6503,'Asia/Tokyo'],['베이징',39.9042,116.4074,'Asia/Shanghai'],['싱가포르',1.3521,103.8198,'Asia/Singapore'],
+ ['시드니',-33.8688,151.2093,'Australia/Sydney'],['런던',51.5072,-0.1276,'Europe/London'],['파리',48.8566,2.3522,'Europe/Paris'],
+ ['뉴욕',40.7128,-74.0060,'America/New_York'],['로스앤젤레스',34.0522,-118.2437,'America/Los_Angeles'],['하와이 마우나케아',19.8207,-155.4681,'Pacific/Honolulu'],
+ ['칠레 아타카마',-23.0237,-67.7536,'America/Santiago']];
+function tzOffsetMin(tz,t){ // 해당 시간대의 UTC 대비 분
+  if(!tz) return -new Date(t).getTimezoneOffset();
+  const p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).formatToParts(new Date(t)).map(x=>[x.type,x.value]));
+  return Math.round((Date.UTC(+p.year,p.month-1,+p.day,+p.hour,+p.minute)-Math.floor(t/6e4)*6e4)/6e4);
+}
+function hm(t,tz){ return new Intl.DateTimeFormat('ko-KR',{timeZone:tz||undefined,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(t)); }
+let GPS=null;
+function getSite(){
+  const v=$('city').value;
+  if(v==='gps'){ if(GPS) return {name:'현재 위치',lat:GPS.lat,lon:GPS.lon,tz:null}; const c=CITIES[0]; return {name:c[0]+' (위치 확인 전)',lat:c[1],lon:c[2],tz:c[3]}; }
+  if(v==='custom'){ const lat=parseFloat($('lat').value), lon=parseFloat($('lon').value); return {name:`위도 ${lat}, 경도 ${lon}`,lat,lon,tz:null}; }
+  const c=CITIES[+v]; return {name:c[0],lat:c[1],lon:c[2],tz:c[3]};
+}
+
+const YR = 365.25*864e5;
+const $ = id => document.getElementById(id);
+const fmtDate = d => `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
+const fmtYM = d => `${d.getFullYear()}년 ${d.getMonth()+1}월`;
+const fmtSpan = y => { const a=Math.abs(y); if(a<1/12) return `${Math.round(a*365.25)}일`; const yy=Math.floor(a), mm=Math.round((a-yy)*12); return (yy?`${yy}년 `:'')+(mm?`${mm}개월`:(yy?'':'0개월')); };
+
+function compute(birth, eyeOnly){
+  const now = new Date();
+  const age = (now - birth)/YR;
+  let rows = STARS.map(s=>{
+    const [en,ko,mag,ly,err,con,des,feat,ra,dec]=s;
+    const depart = new Date(now.getTime() - ly*YR);
+    const d = (depart - birth)/YR; // + : 생일 이후 출발
+    const arrive = new Date(birth.getTime() + ly*YR);
+    return {s,en,ko,mag,ly,err,con,des,feat,ra,dec,depart,d,arrive,eye: mag!=null && mag<=6.5};
+  });
+  if(eyeOnly) rows = rows.filter(r=>r.eye);
+  const hits = rows.filter(r=>Math.abs(r.d)<2).sort((a,b)=>Math.abs(a.d)-Math.abs(b.d));
+  const near = hits.length ? [] : rows.slice().sort((a,b)=>Math.abs(a.d)-Math.abs(b.d)).slice(0,3);
+  return {age, hits, near, now};
+}
+
+function raHM(ra){ if(ra==null) return '–'; const h=ra/15, H=Math.floor(h), M=Math.round((h-H)*60); return `${H}h ${String(M).padStart(2,'0')}m`; }
+function decDM(dec){ if(dec==null) return '–'; const s=dec<0?'−':'+', a=Math.abs(dec), D=Math.floor(a), M=Math.round((a-D)*60); return `${s}${D}° ${String(M).padStart(2,'0')}′`; }
+function esc(t){ return String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+const VIS={visible:['vis-ok','맨눈으로 보임'],scope:['vis-scope','떠 있지만 맨눈으로는 어려움'],below:['vis-no','이 밤에는 지평선 아래'],never:['vis-no','이 위치에서는 뜨지 않음']};
+function visBlock(r,site){
+  const v=r.vis; if(!v) return '';
+  let txt='';
+  if(v.code==='visible'||v.code==='scope'){
+    txt=`가장 잘 보이는 때 <b>${hm(v.best.t,site.tz)}</b>, <b>${dirKo(v.best.az)}쪽</b> 하늘 고도 <b>${Math.round(v.best.alt)}°</b>. 관측 가능 시간 ${hm(v.first,site.tz)}–${hm(v.last,site.tz)}.`;
+    if(v.code==='scope') txt+=` ${r.mag!=null?r.mag.toFixed(1)+'등급이라 ':''}${$('skyQ').selectedOptions[0].textContent.split(' ')[0]} 하늘에서는 쌍안경이나 망원경이 필요합니다.`;
+  } else if(v.code==='below'){
+    txt=`어두운 시간 동안 고도 10° 위로 올라오지 않습니다. 자정 무렵 남쪽 하늘에 뜨는 시기는 <b>${bestSeason(r.ra)}</b>입니다.`;
+  } else {
+    txt=`${site.lat>=0?'남':'북'}쪽 하늘 아주 낮은 곳에 있는 별이라 이 위도에서는 고도 10° 위로 오르지 않습니다(최대 ${Math.max(0,Math.round(v.maxPossible))}°).`;
+  }
+  return `<div class="vis ${VIS[v.code][0]}"><span class="vis-tag">${VIS[v.code][1]}</span><span class="vis-txt">${txt}</span></div>`;
+}
+function card(r, best, site){
+  const when = r.d>=0 ? `태어난 지 ${fmtSpan(r.d)} 뒤 출발` : `태어나기 ${fmtSpan(r.d)} 전 출발`;
+  const errTxt = r.err!=null ? `±${r.err<0.1?'0.1':r.err.toFixed(1)}년` : '오차 정보 없음';
+  const arrived = r.arrive <= new Date();
+  const feat = (r.feat||'').split('; ').filter(x=>!x.startsWith('이름 유래')).join(' · ');
+  return `<article class="card${best?' best':''}">
+    <div class="name"><h3>${esc(r.ko)}<span class="en">${esc(r.en)}</span></h3>
+      <div class="meta">${esc(r.con)} · ${esc(r.des)} · ${r.mag!=null?r.mag.toFixed(2)+'등급':'등급 미상'}</div></div>
+    <div class="diff"><b>${r.d>=0?'+':'−'}${Math.abs(r.d).toFixed(2)}년</b><span>${when}</span></div>
+    <div class="chips">${r.eye?'<span class="chip eye">맨눈으로 보임</span>':'<span class="chip scope">망원경 필요</span>'}${best?'<span class="chip eye">가장 가까운 별빛 친구</span>':''}</div>
+    <div class="facts">
+      <div><em>거리</em>${r.ly.toFixed(1)}광년 (${errTxt})</div>
+      <div><em>빛이 출발한 때</em>${fmtYM(r.depart)}경</div>
+      <div><em>내 생일에 출발한 빛 도착</em>${fmtYM(r.arrive)}${arrived?' (도착함)':''}</div>
+      <div><em>위치</em>적경 ${raHM(r.ra)} · 적위 ${decDM(r.dec)}</div>
+    </div>
+    ${visBlock(r,site)}
+    ${feat?`<div class="feat">${esc(feat)}</div>`:''}
+  </article>`;
+}
+
+function timeline(res, birth){
+  const W=760, H0=70, rowH=22, pad=30;
+  const list = res.hits.length?res.hits:res.near;
+  const span = Math.max(2, ...list.map(r=>Math.abs(r.d)+0.2));
+  const x = d => pad + (d+span)/(2*span)*(W-2*pad);
+  // label rows (greedy)
+  const sorted = list.slice().sort((a,b)=>a.d-b.d), ends=[];
+  sorted.forEach(r=>{ const px=x(r.d), w=r.ko.length*12+14; let k=0; while(ends[k]!=null && ends[k]>px-w/2) k++; ends[k]=px+w/2; r._row=k; });
+  const rows = Math.max(1, ends.length), H = H0 + rows*rowH + 34;
+  const axisY = H-34;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="출생일 전후로 별빛이 출발한 시점">`;
+  s+=`<rect x="${x(-Math.min(2,span))}" y="10" width="${x(Math.min(2,span))-x(-Math.min(2,span))}" height="${axisY-10}" fill="var(--star-soft)" opacity=".5"/>`;
+  s+=`<line x1="${pad}" x2="${W-pad}" y1="${axisY}" y2="${axisY}" stroke="var(--line)"/>`;
+  const step = span>4?1:0.5;
+  for(let t=-Math.floor(span/step)*step; t<=span+1e-9; t+=step){
+    const X=x(t); const dt=new Date(birth.getTime()+t*YR);
+    s+=`<line x1="${X}" x2="${X}" y1="${axisY}" y2="${axisY+5}" stroke="var(--line)"/>`;
+    s+=`<text x="${X}" y="${axisY+19}" text-anchor="middle">${t===0?'생일':dt.getFullYear()+'.'+String(dt.getMonth()+1).padStart(2,'0')}</text>`;
+  }
+  s+=`<line x1="${x(0)}" x2="${x(0)}" y1="6" y2="${axisY}" stroke="var(--star)" stroke-dasharray="3 4"/>`;
+  sorted.forEach(r=>{
+    const X=x(r.d), y = 26 + r._row*rowH, ry=axisY-10, rad=r.mag==null?2.5:Math.max(2.5,Math.min(7,6.5-r.mag*0.6));
+    const col=r.eye?'var(--star)':'var(--cool)';
+    if(r.err) s+=`<line x1="${x(r.d-r.err)}" x2="${x(r.d+r.err)}" y1="${ry}" y2="${ry}" stroke="${col}" stroke-width="1.5" opacity=".55"/>`;
+    s+=`<line x1="${X}" x2="${X}" y1="${y+4}" y2="${ry}" stroke="var(--line)"/>`;
+    s+=`<circle cx="${X}" cy="${ry}" r="${rad}" fill="${col}"/>`;
+    s+=`<text class="lbl" x="${X}" y="${y}" text-anchor="middle">${esc(r.ko)}</text>`;
+  });
+  return s+'</svg>';
+}
+
+function run(e){
+  if(e) e.preventDefault();
+  const v=$('birth').value, err=$('err');
+  $('exTag').hidden = v!=='1980-07-04';
+  if(!v){ err.textContent='생년월일을 입력해 주세요.'; err.hidden=false; return; }
+  const [Y,M,D]=v.split('-').map(Number), birth=new Date(Y,M-1,D);
+  if(birth>new Date()){ err.textContent='미래 날짜는 계산할 수 없습니다. 생년월일을 다시 확인해 주세요.'; err.hidden=false; return; }
+  err.hidden=true;
+  const site=getSite();
+  if(!isFinite(site.lat)||!isFinite(site.lon)||Math.abs(site.lat)>90||Math.abs(site.lon)>180){ err.textContent='위도는 −90~90, 경도는 −180~180 사이 숫자로 넣어 주세요.'; err.hidden=false; return; }
+  const od=$('obsDate').value||localISO(site.tz);
+  const off=tzOffsetMin(site.tz, Date.parse(od+'T12:00:00Z'));
+  const samples=nightSamples(od,site.lat,site.lon,off), dark=samples.filter(s=>s.dark);
+  const lim=parseFloat($('skyQ').value);
+  const res=compute(birth,$('eyeOnly').checked);
+  [...res.hits,...res.near].forEach(r=>{ r.vis = dark.length? visibility(r.s,samples,site.lat,site.lon,lim) : null; });
+  if($('tonightOnly').checked){ res.hits=res.hits.filter(r=>r.vis&&r.vis.code==='visible'); }
+  const best=res.hits[0];
+  const nVis=res.hits.filter(r=>r.vis&&r.vis.code==='visible').length;
+  const [oy,om,odd]=od.split('-').map(Number);
+  $('nightSub').innerHTML = dark.length
+    ? `관측: <b>${esc(site.name)}</b>, ${oy}년 ${om}월 ${odd}일 밤 · 어두운 시간 ${hm(dark[0].t,site.tz)}–${hm(dark[dark.length-1].t,site.tz)}${site.tz?'':' (이 기기 시간대 기준)'}`
+    : `관측: <b>${esc(site.name)}</b>, ${oy}년 ${om}월 ${odd}일 — 이 날은 해가 충분히 지지 않아(백야) 별을 보기 어렵습니다.`;
+  $('summary').innerHTML = `
+    <div class="stat"><b>${res.age.toFixed(2)}년</b><span>오늘(${fmtDate(res.now)}) 기준 나이</span></div>
+    <div class="stat"><b>${res.hits.length}개</b><span>±2년 안의 별빛 친구</span></div>
+    <div class="stat"><b>${dark.length?nVis+'개':'–'}</b><span>그중 이 밤 맨눈으로 보이는 별</span></div>
+    <div class="stat"><b>${best?esc(best.ko):'–'}</b><span>${best?`가장 가까운 별빛 (${best.ly.toFixed(1)}광년)`:'±2년 안에 해당 별 없음'}</span></div>`;
+  $('tl').innerHTML = timeline(res,birth);
+  if(res.hits.length){
+    $('listSub').textContent = `${fmtDate(birth)}에 태어난 당신과 별빛 나이가 비슷한 별입니다. 별빛 나이가 출생일과 가까운 별부터 나열되어 있습니다.`;
+    $('list').innerHTML = res.hits.map((r,i)=>card(r,i===0,site)).join('');
+  } else if($('tonightOnly').checked){
+    $('listSub').textContent = '±2년 안의 별빛 친구 중 이 밤 맨눈으로 보이는 별이 없습니다. 날짜나 위치를 바꾸거나 필터를 꺼 보세요.';
+    $('list').innerHTML = '';
+  } else {
+    $('listSub').textContent = '±2년 안에 출발한 공식 이름의 별빛이 없어, 가장 가까운 별 3개를 대신 보여 드립니다.';
+    $('list').innerHTML = res.near.map(r=>card(r,false,site)).join('');
+  }
+}
+function localISO(tz){ const p=new Intl.DateTimeFormat('en-CA',{timeZone:tz||undefined,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); return p; }
+(function initSite(){
+  const sel=$('city'); sel.add(new Option('현재 위치 (GPS)','gps')); CITIES.forEach((c,i)=>sel.add(new Option(c[0],i))); sel.add(new Option('좌표 직접 입력','custom'));
+  let tz=''; try{ tz=Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){}
+  const guess=CITIES.findIndex(c=>c[3]===tz); sel.value = guess>=0? String(guess) : '0';
+  try{ const saved=localStorage.getItem('sb-city'); if(saved!==null && sel.querySelector(`option[value="${saved}"]`)) sel.value=saved;
+       const bd=localStorage.getItem('sb-birth'); if(bd) $('birth').value=bd;
+       const g=JSON.parse(localStorage.getItem('sb-gps')||'null'); if(g) GPS=g; }catch(e){}
+  $('coordsBox').hidden = sel.value!=='custom';
+  $('obsDate').value = localISO(getSite().tz);
+})();
+function locate(){
+  const note=$('gpsNote');
+  if(!('geolocation' in navigator)){ note.textContent='이 기기에서는 위치를 확인할 수 없습니다. 도시를 골라 주세요.'; note.hidden=false; return; }
+  note.textContent='현재 위치를 확인하는 중입니다…'; note.hidden=false;
+  navigator.geolocation.getCurrentPosition(p=>{
+    GPS={lat:+p.coords.latitude.toFixed(4),lon:+p.coords.longitude.toFixed(4)};
+    try{localStorage.setItem('sb-gps',JSON.stringify(GPS));}catch(e){}
+    note.textContent=`현재 위치: 위도 ${GPS.lat}, 경도 ${GPS.lon} (이 기기에만 저장됩니다)`; run();
+  },e=>{
+    note.textContent = e.code===1 ? '위치 권한이 거부되었습니다. 아이폰 설정 > 개인정보 보호 > 위치 서비스에서 Safari 웹 사이트 위치를 허용하거나, 도시를 골라 주세요.' : '위치를 가져오지 못했습니다. 잠시 후 다시 시도하거나 도시를 골라 주세요.';
+    if(GPS) run();
+  },{enableHighAccuracy:false,timeout:15000,maximumAge:6*3600e3});
+}
+$('city').addEventListener('change',()=>{ const v=$('city').value; $('coordsBox').hidden=v!=='custom'; $('gpsNote').hidden=v!=='gps'; try{localStorage.setItem('sb-city',v);}catch(e){} if(v==='gps') locate(); run(); });
+$('birth').addEventListener('change',()=>{ try{localStorage.setItem('sb-birth',$('birth').value);}catch(e){} });
+if($('city').value==='gps'){ if(GPS){ $('gpsNote').textContent=`현재 위치: 위도 ${GPS.lat}, 경도 ${GPS.lon}`; $('gpsNote').hidden=false; } locate(); }
+$('f').addEventListener('submit',e=>{ try{localStorage.setItem('sb-birth',$('birth').value);}catch(_){} run(e); });
+['eyeOnly','tonightOnly','skyQ','obsDate'].forEach(id=>$(id).addEventListener('change',run));
+run();
+
+// 배경 별
+(function(){
+  const c=$('sky'), x=c.getContext('2d'); let pts=[];
+  function draw(){ const dpr=devicePixelRatio||1; c.width=innerWidth*dpr; c.height=innerHeight*dpr; x.setTransform(dpr,0,0,dpr,0,0);
+    if(!pts.length){ let seed=7; const r=()=> (seed=(seed*16807)%2147483647)/2147483647; for(let i=0;i<140;i++) pts.push([r(),r(),r()]); }
+    x.clearRect(0,0,innerWidth,innerHeight);
+    pts.forEach(([a,b,m])=>{ x.fillStyle=`rgba(232,235,245,${0.15+m*0.45})`; x.beginPath(); x.arc(a*innerWidth,b*innerHeight,0.4+m*1.1,0,7); x.fill(); });
+  }
+  draw(); addEventListener('resize',draw);
+})();
+</script>
+<script>
+if('serviceWorker' in navigator){ addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }
+</script>
+</body>
+</html>

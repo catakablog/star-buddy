@@ -1,0 +1,16 @@
+{
+  "name": "별빛 친구 찾기",
+  "short_name": "별빛 친구",
+  "description": "내가 태어날 무렵 지구로 출발한 별빛을 찾아 주는 앱",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d1426",
+  "theme_color": "#0d1426",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
