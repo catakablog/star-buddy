@@ -94,6 +94,15 @@ h2{font-family:var(--f-display);font-size:22px;margin:0 0 4px;font-weight:700}
 .story summary::before{content:"";width:0;height:0;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
 .story[open] summary::before{transform:rotate(90deg)}
 .story p{margin:8px 0 2px;font-family:var(--f-display);font-size:15px;line-height:1.75;color:var(--ink);max-width:62ch}
+.dday{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;padding:10px 12px;border-radius:10px;background:var(--star-soft)}
+.dd-num{font-family:var(--f-mono);font-size:19px;font-weight:500;color:var(--star);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dd-txt{flex:1 1 240px;min-width:0;font-size:13.5px;color:var(--muted)}
+.dd-txt b{color:var(--ink);font-weight:600}
+.dd-past{background:transparent;border:1px solid var(--line)}
+.dd-past .dd-num{color:var(--muted)}
+.dd-today{background:var(--star);}
+.dd-today .dd-num,.dd-today .dd-txt,.dd-today .dd-txt b{color:#1a1405}
+.stat-dd b{color:var(--star)}
 .empty{color:var(--muted);font-size:14px}
 footer{color:var(--muted);font-size:12.5px;line-height:1.7;border-top:1px solid var(--line);padding-top:16px}
 @media (max-width:520px){.card{grid-template-columns:1fr}.diff{text-align:left}}
@@ -274,20 +283,29 @@ function visBlock(r,site){
   }
   return `<div class="vis ${VIS[v.code][0]}"><span class="vis-tag">${VIS[v.code][1]}</span><span class="vis-txt">${txt}</span></div>`;
 }
+function ddayOf(t){ const a=new Date(t), n=new Date(); const A=Date.UTC(a.getFullYear(),a.getMonth(),a.getDate()), N=Date.UTC(n.getFullYear(),n.getMonth(),n.getDate()); return Math.round((A-N)/864e5); }
+function ddayLabel(n){ return n>0?`D-${n.toLocaleString('ko-KR')}`:n===0?'D-DAY':`D+${(-n).toLocaleString('ko-KR')}`; }
+function ddayBlock(r){
+  const n=ddayOf(r.arrive), errD=r.err!=null?Math.max(1,Math.round(r.err*365.25)):null;
+  const when=`${fmtDate(r.arrive)}경${errD?` (±${errD}일)`:''}`;
+  const msg = n>0 ? `내가 태어난 날 이 별을 떠난 빛이 <b>${when}</b> 지구에 도착합니다.`
+            : n===0 ? `내가 태어난 날 이 별을 떠난 빛이 <b>오늘</b> 지구에 도착합니다. 오늘 밤 이 별을 올려다보세요.`
+            : `내가 태어난 날 이 별을 떠난 빛이 <b>${when}</b> 지구에 도착했습니다. 지금 보이는 빛은 내가 태어난 뒤에 출발한 빛입니다.`;
+  return `<div class="dday ${n>0?'dd-future':n===0?'dd-today':'dd-past'}"><b class="dd-num">${ddayLabel(n)}</b><span class="dd-txt">${msg}</span></div>`;
+}
 function card(r, best, site){
   const when = r.d>=0 ? `태어난 지 ${fmtSpan(r.d)} 뒤 출발` : `태어나기 ${fmtSpan(r.d)} 전 출발`;
   const errTxt = r.err!=null ? `±${r.err<0.1?'0.1':r.err.toFixed(1)}년` : '오차 정보 없음';
-  const arrived = r.arrive <= new Date();
   const feat = (r.feat||'').split('; ').filter(x=>!x.startsWith('이름 유래')).join(' · ');
   return `<article class="card${best?' best':''}">
     <div class="name"><h3>${esc(r.ko)}<span class="en">${esc(r.en)}</span></h3>
       <div class="meta">${esc(r.con)} · ${esc(r.des)} · ${r.mag!=null?r.mag.toFixed(2)+'등급':'등급 미상'}</div></div>
     <div class="diff"><b>${r.d>=0?'+':'−'}${Math.abs(r.d).toFixed(2)}년</b><span>${when}</span></div>
+    ${ddayBlock(r)}
     <div class="chips">${r.eye?'<span class="chip eye">맨눈으로 보임</span>':'<span class="chip scope">망원경 필요</span>'}${best?'<span class="chip eye">가장 가까운 별빛 친구</span>':''}</div>
     <div class="facts">
       <div><em>거리</em>${r.ly.toFixed(1)}광년 (${errTxt})</div>
       <div><em>빛이 출발한 때</em>${fmtYM(r.depart)}경</div>
-      <div><em>내 생일에 출발한 빛 도착</em>${fmtYM(r.arrive)}${arrived?' (도착함)':''}</div>
       <div><em>위치</em>적경 ${raHM(r.ra)} · 적위 ${decDM(r.dec)}</div>
     </div>
     ${visBlock(r,site)}
@@ -345,6 +363,7 @@ function run(e){
   [...res.hits,...res.near].forEach(r=>{ r.vis = dark.length? visibility(r.s,samples,site.lat,site.lon,lim) : null; });
   if($('tonightOnly').checked){ res.hits=res.hits.filter(r=>r.vis&&r.vis.code==='visible'); }
   const best=res.hits[0];
+  const nextArr = STARS.map(s=>({ko:s[1],t:birth.getTime()+s[3]*YR})).map(o=>({...o,n:ddayOf(o.t)})).filter(o=>o.n>=0).sort((a,b)=>a.n-b.n)[0];
   const nVis=res.hits.filter(r=>r.vis&&r.vis.code==='visible').length;
   const [oy,om,odd]=od.split('-').map(Number);
   $('nightSub').innerHTML = dark.length
@@ -354,7 +373,8 @@ function run(e){
     <div class="stat"><b>${res.age.toFixed(2)}년</b><span>오늘(${fmtDate(res.now)}) 기준 나이</span></div>
     <div class="stat"><b>${res.hits.length}개</b><span>±2년 안의 별빛 친구</span></div>
     <div class="stat"><b>${dark.length?nVis+'개':'–'}</b><span>그중 이 밤 맨눈으로 보이는 별</span></div>
-    <div class="stat"><b>${best?esc(best.ko):'–'}</b><span>${best?`가장 가까운 별빛 (${best.ly.toFixed(1)}광년)`:'±2년 안에 해당 별 없음'}</span></div>`;
+    <div class="stat"><b>${best?esc(best.ko):'–'}</b><span>${best?`가장 가까운 별빛 (${best.ly.toFixed(1)}광년)`:'±2년 안에 해당 별 없음'}</span></div>
+    ${nextArr?`<div class="stat stat-dd"><b>${ddayLabel(nextArr.n)}</b><span>다음에 도착할 내 생일의 빛 · ${esc(nextArr.ko)} (${fmtDate(new Date(nextArr.t))}경)</span></div>`:''}`;
   $('tl').innerHTML = timeline(res,birth);
   if(res.hits.length){
     $('listSub').textContent = `${fmtDate(birth)}에 태어난 당신과 별빛 나이가 비슷한 별입니다. 별빛 나이가 출생일과 가까운 별부터 나열되어 있습니다.`;
