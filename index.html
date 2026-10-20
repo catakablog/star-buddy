@@ -343,7 +343,7 @@ function card(r, best, site){
       <div class="meta">${esc(r.con)} · ${esc(r.des)} · ${r.mag!=null?r.mag.toFixed(2)+'등급':'등급 미상'}</div></div>
     <div class="diff"><b>${r.d>=0?'+':'−'}${Math.abs(r.d).toFixed(2)}년</b><span>${when}</span></div>
     ${ddayBlock(r)}
-    <div class="chips">${r.eye?'<span class="chip eye">맨눈으로 보임</span>':'<span class="chip scope">망원경 필요</span>'}${best?'<span class="chip eye">가장 가까운 별빛 친구</span>':''}</div>
+    <div class="chips">${r.eye?'<span class="chip eye">맨눈으로 보임</span>':'<span class="chip scope">망원경 필요</span>'}${best?'<span class="chip eye">나와 나이가 가장 비슷한 별빛 친구</span>':''}</div>
     <div class="facts">
       <div><em>거리</em>${r.ly.toFixed(1)}광년 (${errTxt})</div>
       <div><em>빛이 출발한 때</em>${fmtYM(r.depart)}경</div>
@@ -526,7 +526,7 @@ function run(e){
     <div class="stat"><b>${res.age.toFixed(2)}년</b><span>오늘(${fmtDate(res.now)}) 기준 나이</span></div>
     <div class="stat"><b>${res.hits.length}개</b><span>±2년 안의 별빛 친구</span></div>
     <div class="stat"><b>${dark.length?nVis+'개':'–'}</b><span>그중 이 밤 맨눈으로 보이는 별</span></div>
-    <div class="stat"><b>${best?esc(best.ko):'–'}</b><span>${best?`가장 가까운 별빛 (${best.ly.toFixed(1)}광년)`:'±2년 안에 해당 별 없음'}</span></div>
+    <div class="stat"><b>${best?esc(best.ko):'–'}</b><span>${best?`나와 나이가 가장 비슷한 별빛 (${best.ly.toFixed(1)}광년)`:'±2년 안에 해당 별 없음'}</span></div>
     ${nextArr?`<div class="stat stat-dd"><b>${ddayLabel(nextArr.n)}</b><span>다음에 도착할 내 생일의 빛 · ${esc(nextArr.ko)} (${fmtDate(new Date(nextArr.t))}경)</span></div>`:''}`;
   $('tl').innerHTML = timeline(res,birth);
   if(res.hits.length){
