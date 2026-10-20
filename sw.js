@@ -1,5 +1,5 @@
 // 별빛 친구 찾기 — 오프라인 캐시. 파일을 고치면 VERSION 숫자를 올려 주세요.
-const VERSION = 'starbuddy-v5';
+const VERSION = 'starbuddy-v6';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
