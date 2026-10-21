@@ -1,7 +1,7 @@
 {
-  "name": "별빛 친구 찾기",
-  "short_name": "별빛 친구",
-  "description": "내가 태어날 무렵 지구로 출발한 별빛을 찾아 주는 앱",
+  "name": "동갑내기 별빛 친구 찾기",
+  "short_name": "동갑내기 별빛",
+  "description": "나와 나이가 같은 별빛, 동갑내기 별빛 친구를 찾아 주는 앱",
   "lang": "ko",
   "start_url": "./",
   "scope": "./",
