@@ -329,9 +329,9 @@ function ddayLabel(n){ return n>0?`D-${n.toLocaleString('ko-KR')}`:n===0?'D-DAY'
 function ddayBlock(r){
   const n=ddayOf(r.arrive), errD=r.err!=null?Math.max(1,Math.round(r.err*365.25)):null;
   const when=`${fmtDate(r.arrive)}경${errD?` (±${errD}일)`:''}`;
-  const msg = n>0 ? `내가 태어난 날 이 별을 떠난 빛이 <b>${when}</b> 지구에 도착합니다.`
-            : n===0 ? `내가 태어난 날 이 별을 떠난 빛이 <b>오늘</b> 지구에 도착합니다. 오늘 밤 이 별을 올려다보세요.`
-            : `내가 태어난 날 이 별을 떠난 빛이 <b>${when}</b> 지구에 도착했습니다. 지금 보이는 빛은 내가 태어난 뒤에 출발한 빛입니다.`;
+  const msg = n>0 ? `내가 태어난 날 이 별에서 같이 태어난 빛이 <b>${when}</b> 지구에 도착합니다.`
+            : n===0 ? `내가 태어난 날 이 별에서 같이 태어난 빛이 <b>오늘</b> 지구에 도착합니다. 오늘 밤 이 별을 올려다보세요.`
+            : `내가 태어난 날 이 별에서 같이 태어난 빛이 <b>${when}</b> 지구에 도착했습니다. 지금 보이는 빛은 내가 태어난 뒤에 출발한 빛입니다.`;
   return `<div class="dday ${n>0?'dd-future':n===0?'dd-today':'dd-past'}"><b class="dd-num">${ddayLabel(n)}</b><span class="dd-txt">${msg}</span></div>`;
 }
 function card(r, best, site){
