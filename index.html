@@ -351,7 +351,7 @@ function card(r, best, site){
     </div>
     ${visBlock(r,site)}
     ${feat?`<div class="feat">${esc(feat)}</div>`:''}
-    ${r.story?`<details class="story"><summary>이름 이야기</summary><p>${esc(r.story)}</p></details>`:''}
+    ${r.story?`<details class="story" open><summary>이름 이야기</summary><p>${esc(r.story)}</p></details>`:''}
     <button type="button" class="share-btn" data-en="${esc(r.en)}">공유 카드 만들기</button>
   </article>`;
 }
